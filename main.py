@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 import db
 import llm
-from tasks import get_todays_task, public_view
+from tasks import get_todays_task, is_passing, public_view
 
 app = FastAPI(title="Prompt Game")
 
@@ -77,7 +77,8 @@ def send_prompt(body: PromptBody):
     s["history"].append({"role": "assistant", "content": reply})
 
     task = get_todays_task()
-    passed = bool(task["check"](reply))
+    user_prompts = [m["content"] for m in s["history"] if m["role"] == "user"]
+    passed = is_passing(task, reply, user_prompts)
     s["passed"] = passed
 
     return {"reply": reply, "passed": passed, "prompt_count": s["prompts"]}
