@@ -1,0 +1,12 @@
+# Secrets - never commit API keys or database passwords
+.env
+
+# Python virtual environment (each person makes their own)
+.venv/
+
+# Python's auto-generated cache files
+__pycache__/
+*.pyc
+
+# macOS folder metadata
+.DS_Store
