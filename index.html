@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prompt Daily</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Prompt Daily</h1>
+      <p class="tagline">Today's task. Fewest prompts wins.</p>
+    </header>
+
+    <section class="card" id="task-card">
+      <h2>Today's task</h2>
+      <p id="task-title">Loading...</p>
+      <p id="task-details" class="muted"></p>
+      <div class="counter">Prompts used: <strong id="count">0</strong></div>
+    </section>
+
+    <section class="card" id="chat">
+      <div id="messages"></div>
+      <form id="prompt-form">
+        <input id="prompt-input" type="text" placeholder="Type your prompt..." autocomplete="off" maxlength="1000" />
+        <button type="submit" id="send-btn">Send</button>
+      </form>
+    </section>
+
+    <section class="card hidden" id="win-card">
+      <h2>You did it!</h2>
+      <p id="win-text"></p>
+      <form id="score-form">
+        <input id="name-input" type="text" placeholder="Your name" maxlength="20" required />
+        <button type="submit">Submit score</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Today's leaderboard</h2>
+      <ol id="leaderboard"><li class="muted">No scores yet</li></ol>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
