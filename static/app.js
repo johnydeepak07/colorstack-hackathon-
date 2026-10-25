@@ -4,6 +4,22 @@
 // One id per browser tab so the backend can track this player's attempt.
 const sessionId = crypto.randomUUID();
 
+// One id per browser, kept across refreshes, so the server can allow one score per day.
+// Storage can be blocked (private windows, strict settings), so fall back to a fresh id.
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem("deviceId");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("deviceId", id);
+    }
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+const deviceId = getDeviceId();
+
 const els = {
   title: document.getElementById("task-title"),
   details: document.getElementById("task-details"),
@@ -47,10 +63,14 @@ function addMessage(text, kind) {
 
 async function loadTask() {
   try {
-    const res = await fetch("/api/task");
+    const res = await fetch(`/api/task?device_id=${encodeURIComponent(deviceId)}`);
     const task = await res.json();
     els.title.textContent = task.title;
     els.details.textContent = task.details;
+    if (task.played_today) {
+      els.promptForm.classList.add("hidden");
+      addMessage("You already played today. Come back tomorrow for a new task!", "system");
+    }
   } catch (err) {
     els.title.textContent = "Couldn't load today's task";
     els.details.textContent = "Check that the server is running, then refresh.";
@@ -118,7 +138,9 @@ els.promptForm.addEventListener("submit", async (e) => {
 
     if (data.passed) {
       clearInterval(timerHandle);
-      els.winTime.textContent = `Time: ${fmtTime((Date.now() - startedAt) / 1000)}`;
+      // Use the server's time so the win card, timer, and leaderboard all show the same value
+      els.timer.textContent = fmtTime(data.seconds);
+      els.winTime.textContent = `Time: ${fmtTime(data.seconds)}`;
       addMessage("Task complete!", "system");
       els.winText.textContent = `Solved in ${data.prompt_count} ${plural(data.prompt_count)}.`;
       els.winCard.classList.add("open");
@@ -145,7 +167,7 @@ els.scoreForm.addEventListener("submit", async (e) => {
     const res = await fetch("/api/score", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, name: els.nameInput.value }),
+      body: JSON.stringify({ session_id: sessionId, name: els.nameInput.value, device_id: deviceId }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail);
@@ -161,7 +183,7 @@ els.scoreForm.addEventListener("submit", async (e) => {
   } catch (err) {
     btn.disabled = false;
     btn.textContent = "Save score";
-    addMessage("Couldn't save your score. Try again.", "system");
+    addMessage(err.message || "Couldn't save your score. Try again.", "system");
   }
 });
 
