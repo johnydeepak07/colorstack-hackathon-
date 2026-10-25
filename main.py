@@ -10,7 +10,7 @@ THE CONTRACT (don't change these JSON shapes without telling the team):
   GET  /api/task          ?device_id=... (optional)
                           -> {id, title, details, played_today}
   POST /api/prompt        body: {session_id, prompt}
-                          -> {reply, passed, prompt_count}
+                          -> {reply, passed, prompt_count, seconds}   (seconds is null until passed)
   POST /api/score         body: {session_id, name, device_id (optional)}
                           -> {saved: true, prompts, seconds}
   GET  /api/leaderboard   -> [{name, prompts, seconds, ...}, ...]
@@ -123,8 +123,12 @@ def send_prompt(body: PromptBody, request: Request):
     user_prompts = [m["content"] for m in s["history"] if m["role"] == "user"]
     passed = is_passing(task, reply, user_prompts)
     s["passed"] = passed
+    if passed:
+        # Clock stops at the solve, not when the score is submitted (typing a name is free).
+        # The page shows this same number, so the win card and leaderboard always match.
+        s["seconds"] = round(time.time() - s["start"], 1)
 
-    return {"reply": reply, "passed": passed, "prompt_count": s["prompts"]}
+    return {"reply": reply, "passed": passed, "prompt_count": s["prompts"], "seconds": s.get("seconds")}
 
 
 @app.post("/api/score")
@@ -136,10 +140,9 @@ def submit_score(body: ScoreBody):
         raise HTTPException(status_code=400, detail="Score already saved!")
     if _already_played(body.device_id):
         raise HTTPException(status_code=400, detail="You already played today - come back tomorrow!")
-    seconds = time.time() - s["start"]
-    db.save_score(body.name.strip(), s["task_id"], s["prompts"], seconds, body.device_id)
+    db.save_score(body.name.strip(), s["task_id"], s["prompts"], s["seconds"], body.device_id)
     s["score_saved"] = True
-    return {"saved": True, "prompts": s["prompts"], "seconds": round(seconds, 1)}
+    return {"saved": True, "prompts": s["prompts"], "seconds": s["seconds"]}
 
 
 @app.get("/api/leaderboard")

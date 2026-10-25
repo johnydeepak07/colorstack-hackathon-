@@ -138,7 +138,9 @@ els.promptForm.addEventListener("submit", async (e) => {
 
     if (data.passed) {
       clearInterval(timerHandle);
-      els.winTime.textContent = `Time: ${fmtTime((Date.now() - startedAt) / 1000)}`;
+      // Use the server's time so the win card, timer, and leaderboard all show the same value
+      els.timer.textContent = fmtTime(data.seconds);
+      els.winTime.textContent = `Time: ${fmtTime(data.seconds)}`;
       addMessage("Task complete!", "system");
       els.winText.textContent = `Solved in ${data.prompt_count} ${plural(data.prompt_count)}.`;
       els.winCard.classList.add("open");
