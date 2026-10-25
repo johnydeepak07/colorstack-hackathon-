@@ -3,6 +3,7 @@ db.py  (owner: Data + pitch person)
 
 save_score(...)       -> store a finished run
 get_leaderboard(...)  -> today's best runs (fewest prompts first)
+has_played_today(...) -> did this device already save a score today?
 
 Uses MongoDB if MONGODB_URI is set in .env, otherwise falls back to an
 in-memory list so the app works on day one with zero setup.
@@ -32,9 +33,10 @@ if MONGODB_URI:
         print(f"[db] couldn't connect to MongoDB, using in-memory scores: {e}")
 
 
-def save_score(name: str, task_id: int, prompts: int, seconds: float) -> dict:
+def save_score(name: str, task_id: int, prompts: int, seconds: float, device_id: str = "") -> dict:
     doc = {
         "name": name[:20] or "anon",
+        "device_id": device_id,
         "task_id": task_id,
         "prompts": prompts,
         "seconds": round(seconds, 1),
@@ -51,12 +53,23 @@ def save_score(name: str, task_id: int, prompts: int, seconds: float) -> dict:
     return doc
 
 
-def get_leaderboard(limit: int = 10) -> list[dict]:
+def has_played_today(device_id: str) -> bool:
     today = date.today().isoformat()
     if _collection is not None:
         try:
+            return _collection.find_one({"device_id": device_id, "day": today}) is not None
+        except PyMongoError as e:
+            print(f"[db] played-today check failed, checking in-memory scores: {e}")
+    return any(s["device_id"] == device_id and s["day"] == today for s in _memory_scores)
+
+
+def get_leaderboard(limit: int = 10) -> list[dict]:
+    today = date.today().isoformat()
+    # device_id stays private: it's the lock that stops replays, so it's never sent out
+    if _collection is not None:
+        try:
             cursor = (
-                _collection.find({"day": today}, {"_id": 0})
+                _collection.find({"day": today}, {"_id": 0, "device_id": 0})
                 .sort([("prompts", 1), ("seconds", 1)])
                 .limit(limit)
             )
@@ -65,4 +78,4 @@ def get_leaderboard(limit: int = 10) -> list[dict]:
             print(f"[db] leaderboard read failed, showing in-memory scores: {e}")
     todays = [s for s in _memory_scores if s["day"] == today]
     todays.sort(key=lambda s: (s["prompts"], s["seconds"]))
-    return todays[:limit]
+    return [{k: v for k, v in s.items() if k != "device_id"} for s in todays[:limit]]
