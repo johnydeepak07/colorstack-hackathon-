@@ -38,6 +38,12 @@ const els = {
   leaderboard: document.getElementById("leaderboard"),
 };
 
+let maxChars = 100;
+const charCount = document.getElementById("char-count");
+function updateCount() {
+  charCount.textContent = `${els.promptInput.value.length} / ${maxChars}`;
+}
+els.promptInput.addEventListener("input", updateCount);
 let startedAt = null, timerHandle = null;
 
 const plural = (n) => `prompt${n === 1 ? "" : "s"}`;
@@ -67,6 +73,9 @@ async function loadTask() {
     const task = await res.json();
     els.title.textContent = task.title;
     els.details.textContent = task.details;
+    maxChars = task.max_prompt_chars || 100;
+    els.promptInput.maxLength = maxChars;
+    updateCount();
     if (task.played_today) {
       els.promptForm.classList.add("hidden");
       addMessage("You already played today. Come back tomorrow for a new task!", "system");
@@ -115,6 +124,7 @@ els.promptForm.addEventListener("submit", async (e) => {
   startTimer();
   addMessage(prompt, "user");
   els.promptInput.value = "";
+  updateCount();
   els.sendBtn.disabled = true;
   const thinking = addMessage("Thinking...", "ai thinking");
 

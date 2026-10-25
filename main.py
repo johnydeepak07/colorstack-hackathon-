@@ -24,6 +24,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+import difflib
+import re
+
 import db
 import llm
 from tasks import TASKS_BY_ID, get_todays_task, is_passing, public_view
@@ -31,6 +34,7 @@ from tasks import TASKS_BY_ID, get_todays_task, is_passing, public_view
 app = FastAPI(title="Prompt Game")
 
 MAX_PROMPTS_PER_SESSION = 30   # caps Groq usage per player
+MAX_PROMPT_CHARS = int(os.getenv("MAX_PROMPT_CHARS", "100"))
 MAX_HISTORY_SENT = 21          # odd so the trimmed history still starts with a user message
 MAX_SESSIONS = 5000            # oldest sessions are dropped past this
 RATE_LIMIT = 15                # prompts per IP address...
@@ -82,11 +86,26 @@ def _check_rate_limit(ip: str) -> None:
 def _already_played(device_id: str) -> bool:
     return bool(device_id) and not ALLOW_REPLAY and db.has_played_today(device_id)
 
+def _norm(text: str) -> str:
+    """Lowercase, drop punctuation, collapse spaces, so formatting tricks don't dodge the check."""
+    return " ".join(re.sub(r"[^a-z0-9\s]", " ", text.lower()).split())
+
+
+def _copies_task(prompt: str, task: dict) -> bool:
+    """True if the prompt is (nearly) the task's title or description word for word."""
+    p = _norm(prompt)
+    title, details = task.get("title", ""), task.get("details", "")
+    for text in (title, details, f"{title} {details}"):
+        t = _norm(text)
+        if t and difflib.SequenceMatcher(None, p, t).ratio() > 0.8:
+            return True
+    return False
 
 @app.get("/api/task")
 def get_task(device_id: str = Query(default="", max_length=100)):
     task = public_view(get_todays_task())
     task["played_today"] = _already_played(device_id)
+    task["max_prompt_chars"] = MAX_PROMPT_CHARS
     return task
 
 
@@ -95,8 +114,11 @@ def send_prompt(body: PromptBody, request: Request):
     prompt = body.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt can't be empty")
-    if len(prompt) > 1000:
-        raise HTTPException(status_code=400, detail="Prompt too long (max 1000 chars)")
+    if len(prompt) > MAX_PROMPT_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Prompt too long (max {MAX_PROMPT_CHARS} characters, you used {len(prompt)}).",
+        )
 
     s = _get_session(body.session_id)
     if s["passed"]:
@@ -106,6 +128,11 @@ def send_prompt(body: PromptBody, request: Request):
             status_code=400,
             detail=f"Out of prompts ({MAX_PROMPTS_PER_SESSION} max). Refresh the page to start over.",
         )
+    
+    task = TASKS_BY_ID[s["task_id"]]
+    if _copies_task(prompt, task):
+        raise HTTPException(status_code=400, detail="Nice try. Put the task in your own words.")
+
     _check_rate_limit(request.client.host if request.client else "unknown")
 
     user_msg = {"role": "user", "content": prompt}
@@ -119,7 +146,6 @@ def send_prompt(body: PromptBody, request: Request):
     s["history"].append({"role": "assistant", "content": reply})
     s["prompts"] += 1
 
-    task = TASKS_BY_ID[s["task_id"]]
     user_prompts = [m["content"] for m in s["history"] if m["role"] == "user"]
     passed = is_passing(task, reply, user_prompts)
     s["passed"] = passed

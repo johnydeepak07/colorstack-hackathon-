@@ -59,7 +59,8 @@ button:hover:not(:disabled) { filter: brightness(.95); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 #prompt-form button { align-self: flex-end; }
 button.ghost { margin-top: 12px; background: transparent; border: 1px solid var(--line); color: var(--ink); }
-
+.small { font-size: .85rem; margin: 0; }
+#char-count { align-self: flex-end; }
 /* finish screen: slides up from the bottom */
 .overlay {
   position: fixed; inset: 0; z-index: 10;
