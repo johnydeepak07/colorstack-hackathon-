@@ -3,46 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Prompt Daily</title>
+  <title>Promptless</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <main>
     <header>
-      <h1>Prompt Daily</h1>
-      <p class="tagline">Today's task. Fewest prompts wins.</p>
+      <h1>Promptless</h1>
+      <p class="tagline">One task a day. Fewest prompts wins.</p>
     </header>
 
     <section class="card" id="task-card">
-      <h2>Today's task</h2>
-      <p id="task-title">Loading...</p>
+      <p class="muted label">Today's task</p>
+      <h2 id="task-title">Loading...</h2>
       <p id="task-details" class="muted"></p>
-      <div class="counter">Prompts used: <strong id="count">0</strong></div>
+      <div class="counter" aria-live="polite">
+        <strong id="count">0</strong>
+        <div class="counter-meta">
+          <span>prompts used</span>
+          <span id="timer" class="muted">0:00</span>
+        </div>
+      </div>
     </section>
 
     <section class="card" id="chat">
-      <div id="messages"></div>
+      <div id="messages" role="log" aria-live="polite">
+        <p class="empty">Write your first prompt below. Be specific about what you want.</p>
+      </div>
       <form id="prompt-form">
-        <input id="prompt-input" type="text" placeholder="Type your prompt..." autocomplete="off" maxlength="1000" />
-        <button type="submit" id="send-btn">Send</button>
+        <label for="prompt-input" class="sr">Your prompt</label>
+        <textarea id="prompt-input" rows="3" placeholder="Type your prompt. Enter to send, Shift+Enter for a new line." maxlength="1000"></textarea>
+        <button type="submit" id="send-btn">Send prompt</button>
       </form>
     </section>
 
-    <section class="card hidden" id="win-card">
-      <h2>You did it!</h2>
-      <p id="win-text"></p>
-      <form id="score-form">
-        <input id="name-input" type="text" placeholder="Your name" maxlength="20" required />
-        <button type="submit">Submit score</button>
-      </form>
-    </section>
-
-    <section class="card">
-      <h2>Today's leaderboard</h2>
-      <ol id="leaderboard"><li class="muted">No scores yet</li></ol>
-    </section>
+    <div class="overlay" id="win-card" role="dialog" aria-modal="true" aria-labelledby="win-heading">
+      <div class="sheet">
+        <h2 id="win-heading">You got it!</h2>
+        <p id="win-text"></p>
+    
+        <form id="score-form">
+          <label for="name-input" class="sr">Your name</label>
+          <input id="name-input" type="text" placeholder="Name for the leaderboard" maxlength="20" required autocomplete="nickname" />
+          <button type="submit">Save score</button>
+        </form>
+        <button type="button" id="share-btn" class="ghost hidden">Copy result to share</button>
+    
+        <h3>Today's leaderboard</h3>
+        <ol id="leaderboard"><li class="muted">No scores yet</li></ol>
+      </div>
+    </div>
   </main>
 
   <script src="/static/app.js"></script>
 </body>
 </html>
+
