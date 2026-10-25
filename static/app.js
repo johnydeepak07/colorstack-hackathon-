@@ -15,6 +15,7 @@ const els = {
   sendBtn: document.getElementById("send-btn"),
   winCard: document.getElementById("win-card"),
   winText: document.getElementById("win-text"),
+  winTime: document.getElementById("win-time"),
   scoreForm: document.getElementById("score-form"),
   nameInput: document.getElementById("name-input"),
   shareBtn: document.getElementById("share-btn"),
@@ -117,6 +118,7 @@ els.promptForm.addEventListener("submit", async (e) => {
 
     if (data.passed) {
       clearInterval(timerHandle);
+      els.winTime.textContent = `Time: ${fmtTime((Date.now() - startedAt) / 1000)}`;
       addMessage("Task complete!", "system");
       els.winText.textContent = `Solved in ${data.prompt_count} ${plural(data.prompt_count)}.`;
       els.winCard.classList.add("open");
@@ -135,6 +137,10 @@ els.promptForm.addEventListener("submit", async (e) => {
 
 els.scoreForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+  const btn = e.submitter;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = "Saving...";
   try {
     const res = await fetch("/api/score", {
       method: "POST",
@@ -153,6 +159,8 @@ els.scoreForm.addEventListener("submit", async (e) => {
     };
     loadLeaderboard();
   } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "Save score";
     addMessage("Couldn't save your score. Try again.", "system");
   }
 });
