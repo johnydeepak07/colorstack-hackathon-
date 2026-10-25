@@ -4,16 +4,29 @@ A daily prompt-engineering game. Each day has one task. Get the AI to complete i
 
 ## Run it (first 5 minutes)
 ```bash
-python -m venv venv
+python3 -m venv venv              # Windows: python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env              # Windows: copy .env.example .env
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 Open http://127.0.0.1:8000 (game) and http://127.0.0.1:8000/docs (API tester).
 
+Always start the server with `python -m uvicorn`, not plain `uvicorn`. Plain `uvicorn` can
+silently run your computer's global Python instead of the venv, and the game then shows
+"Network error" because packages like `groq` are missing. Every new terminal needs
+`source venv/bin/activate` first (you'll see `(venv)` in the prompt).
+
 It runs with NO keys: AI replies are fake and scores live in memory.
-Add `ANTHROPIC_API_KEY` to `.env` for the real AI, and `MONGODB_URI` for real storage.
+Add `GROQ_API_KEY` to `.env` for the real AI, and `MONGODB_URI` for real storage.
+Set `TASK_ID=14` (any id 1-25) to pin one task for the demo.
+Restart uvicorn after editing `.env` - `--reload` only watches `.py` files.
+
+## Backend limits (in `main.py`)
+- 30 prompts per player, 15 prompts per minute per IP address
+- Only the last 21 messages are sent to the AI
+- If Groq fails, the player sees a friendly error and the prompt isn't counted
+- If MongoDB is unreachable, scores fall back to memory instead of crashing
 
 ## Who owns what
 | Person | Files | First job |

@@ -217,6 +217,8 @@ TASKS = [
         "title": "Is 29 prime? Get the AI to answer with a single uppercase word.",
         "details": "Nothing else in the reply.",
         "answer": "YES",
+        # Yes/no question: "answer YES or NO" is a fair prompt, not copying.
+        "allow_echo": True,
     },
     {
         "id": 17,
@@ -265,7 +267,7 @@ TASKS = [
         "id": 23,
         "difficulty": "hard",
         "title": "Return a JSON array of objects for Ada age 22, Ben age 19, and Cy age 21, sorted by age ascending.",
-        "details": "Keys must be \"name\" and \"age\" only.",
+        "details": "Keys must be \"name\" and \"age\" only. No code fences, nothing else in the reply.",
         "check": check_sorted_people,
     },
     {
@@ -300,7 +302,7 @@ def copied_from_prompts(task: dict, reply: str, prompts: list[str]) -> bool:
     """True if the player typed the AI's reply themselves in any of their prompts."""
     # Collapse all whitespace so line breaks and double spaces don't hide a copy
     reply = " ".join(reply.split())
-    if not reply:
+    if not reply or task.get("allow_echo"):
         return False
     case_sensitive = task.get("echo_case_sensitive", False)
     return any(
@@ -322,9 +324,11 @@ def get_todays_task(today: date | None = None) -> dict:
 
     Set TASK_ID in .env (e.g. TASK_ID=14) to pin one task, handy for the demo.
     """
-    pinned = os.getenv("TASK_ID")
+    pinned = os.getenv("TASK_ID", "").strip()
     if pinned:
-        return TASKS_BY_ID[int(pinned)]
+        if pinned.isdigit() and int(pinned) in TASKS_BY_ID:
+            return TASKS_BY_ID[int(pinned)]
+        print(f"[tasks] TASK_ID={pinned!r} isn't a valid task id - using today's task instead")
     today = today or date.today()
     return TASKS[today.toordinal() % len(TASKS)]
 

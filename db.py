@@ -6,11 +6,14 @@ get_leaderboard(...)  -> today's best runs (fewest prompts first)
 
 Uses MongoDB if MONGODB_URI is set in .env, otherwise falls back to an
 in-memory list so the app works on day one with zero setup.
+If MongoDB can't be reached (bad Wi-Fi at the demo), scores fall back to
+memory instead of crashing the server.
 """
 import os
 from datetime import date, datetime, timezone
 
 from dotenv import load_dotenv
+from pymongo.errors import PyMongoError
 
 load_dotenv()
 
@@ -22,8 +25,11 @@ _collection = None
 if MONGODB_URI:
     from pymongo import MongoClient
 
-    _client = MongoClient(MONGODB_URI)
-    _collection = _client["promptgame"]["scores"]
+    try:
+        _client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        _collection = _client["promptgame"]["scores"]
+    except PyMongoError as e:
+        print(f"[db] couldn't connect to MongoDB, using in-memory scores: {e}")
 
 
 def save_score(name: str, task_id: int, prompts: int, seconds: float) -> dict:
@@ -36,21 +42,27 @@ def save_score(name: str, task_id: int, prompts: int, seconds: float) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     if _collection is not None:
-        _collection.insert_one(dict(doc))
-    else:
-        _memory_scores.append(doc)
+        try:
+            _collection.insert_one(dict(doc))
+            return doc
+        except PyMongoError as e:
+            print(f"[db] save failed, keeping score in memory: {e}")
+    _memory_scores.append(doc)
     return doc
 
 
 def get_leaderboard(limit: int = 10) -> list[dict]:
     today = date.today().isoformat()
     if _collection is not None:
-        cursor = (
-            _collection.find({"day": today}, {"_id": 0})
-            .sort([("prompts", 1), ("seconds", 1)])
-            .limit(limit)
-        )
-        return list(cursor)
+        try:
+            cursor = (
+                _collection.find({"day": today}, {"_id": 0})
+                .sort([("prompts", 1), ("seconds", 1)])
+                .limit(limit)
+            )
+            return list(cursor)
+        except PyMongoError as e:
+            print(f"[db] leaderboard read failed, showing in-memory scores: {e}")
     todays = [s for s in _memory_scores if s["day"] == today]
     todays.sort(key=lambda s: (s["prompts"], s["seconds"]))
     return todays[:limit]
